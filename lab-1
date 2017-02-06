@@ -2,3 +2,139 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
+%matplotlib inline
+
+male100 = pd.read_csv('https://docs.google.com/spreadsheets/d/' +
+                      '1iTlieC99QfWKw2B_RQZtUstryt5TkIvEcNjWo' +
+                      '0eis4Q/pub?output=csv', header = 0)
+female100 = pd.read_csv('https://docs.google.com/spreadsheets/d/' +
+                        '1atAC-bQMDyX8DuTcUwKBEGGBJLtfznSOlF6Ec' +
+                        'R1TvjA/pub?output=csv', header=0)
+
+#basic pandas plotting
+male100.plot(x=0,y=1, kind='scatter', color='g', marker='v',
+             label="Men's 100m")
+plt.legend(loc='upper right')
+plt.show()
+
+#Two different datasets in one graph
+plt.figure("mf100")
+plt.subplot(111)
+plt.plot(female100['Year'],female100['Time'], 'bs',\
+         label="Women")
+plt.plot(male100['Year'],male100['Time'], 'rs',\
+         label="Men")
+plt.title("Men's and Women's 100m Times")
+plt.legend(loc="upper right")
+plt.xlabel("Year")
+plt.ylabel("Time")
+
+#we can use plt to plot a simple graph
+#define a graph wih respect to all Olympic years in male100.csv
+y = -0.014*male100['Year'] + 38
+plt.plot(male100['Year'],y,'k-')
+plt.show()
+
+### 1.1 Feature Scaling
+
+np.set_printoptions(suppress=True)
+
+#function that scales input data according to different techniques
+def scaleData(input, technique, xlabel, tlabel):
+  #convert csv to matrix
+  data = input.as_matrix()
+
+  #calculate means and stds
+  ym = input[xlabel].mean()
+  ys = input[xlabel].std()
+  tm = input[tlabel].mean()
+  ts = input[tlabel].std()
+  
+  if (technique == 'standardise'):
+    #for loop to systematically subtract value from each row
+    for i in range(0,len(data)):
+      data[i][0] = (data[i][0]-ym)/ys
+      data[i][1] = (data[i][1]-tm)/ts
+    np.savetxt("data.csv", data, delimiter=",")
+    scaledData = pd.read_csv('data.csv', header=None,\
+                             names=['Year','Time'])
+    np.set_printoptions(suppress=True)
+    return scaledData
+  elif (technique == 'unit length'):
+    #for loop for unit length scaling
+    for i in range(0,len(data)):
+      for j in range(0,2):
+        L1 = abs(data[i][j]).sum()
+        data[i][j] = data[i][j]/L1
+    np.savetxt("data.csv", data, delimiter=",")
+    scaledData = pd.read_csv('data.csv', header=None,\
+                             names=['Year','Time'])
+    np.set_printoptions(suppress=True)
+    return scaledData
+  else:
+    print 'Please choose out of the following scaling techniques', \
+    '\"standardise\" or \"unit length\"'
+
+#store male100.csv
+male100 = pd.read_csv('https://docs.google.com/spreadsheets/d/' +
+                      '1iTlieC99QfWKw2B_RQZtUstryt5TkIvEcNjWo' +
+                      '0eis4Q/pub?output=csv', header = 0)
+
+#output result
+#scaleData(male100, 'standardise', 'Year', 'Time')
+
+### 1.2 Linear Regression example with Ordinary Least Squares
+
+scaledMale100 = scaleData(male100, 'standardise','Year','Time')
+
+def linreg(data,xlabel,tlabel):
+  #set the t value to be the time column (i.e. what we want
+  #to predict in training)
+  t = data.as_matrix(columns=[tlabel])
+  x = data.as_matrix()
+  x = np.insert(x,0,values=1,axis=1)
+  #print x
+  xT = x.transpose()
+  xTx = np.dot(xT,x)
+  xTxInverse = np.linalg.inv(xTx)
+  w = np.dot(np.dot(xTxInverse,xT),t)
+  return w
+
+#output result
+#linreg(male100,'Year','Time')
+
+def longlinreg(data,xlabel,tlabel):
+    df = data.copy()
+    x = df[xlabel]
+    t = df[tlabel]
+    df['xt'] = x*t
+    df['x2'] = x*x
+
+
+    avg_x = df[xlabel].mean()
+    avg_t = df[tlabel].mean()
+    avg_xt = df['xt'].mean()
+    avg_x2 = df['x2'].mean()
+
+    
+    w1 = (avg_xt - (avg_x*avg_t))/(avg_x2-(avg_x*avg_x))
+    w0 = avg_t - (w1*avg_x)
+    
+    return w0,w1
+
+#wHat = linreg(scaledMale100,'Year','Time')
+
+#built in scipy linear regression function
+#stats.linregress(w0,w1)
+
+w0,w1 = longlinreg(scaledMale100,'Year','Time')
+print w0,w1
+y = w0 + w1*scaledMale100['Year']
+plt.plot(scaledMale100['Year'],scaledMale100['Time'],\
+         'bs',label="Men")
+plt.plot(scaledMale100['Year'],y,'r',label="slope")
+plt.title("Scaled Linear Regression Slope and True " \
+          "(Scaled) Values")
+plt.xlabel("Year")
+plt.ylabel("Time")
+plt.legend(loc="upper right")
